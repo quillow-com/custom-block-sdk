@@ -1,6 +1,7 @@
-import { isContext, isHttpUrl, isMessage, message, type BlockContext } from './protocol.js'
+import { isContext, isHttpUrl, isMessage, message } from './protocol.js'
+import type { BlockContext } from './types.js'
 
-export type { BlockContext } from './protocol.js'
+export type { BlockContext } from './types.js'
 
 export interface SDKOptions {
   /** Pin the embedding origin when known. Otherwise trust the direct parent and pin its first valid message. */

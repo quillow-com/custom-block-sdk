@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createCustomBlockHost } from '../src/host.js'
-import { createCustomBlockSDK } from '../src/index.js'
-import { message, type BlockContext } from '../src/protocol.js'
+import { createCustomBlockSDK, type BlockContext } from '../src/index.js'
+import { message } from '../src/protocol.js'
 
 const context = (): BlockContext => ({
   theme: {
@@ -181,57 +180,5 @@ describe('widget bridge', () => {
     expect(sdk.getContext()).toEqual(context())
     expect(document.documentElement.style.length).toBe(0)
     expect(document.querySelector('link')).toBeNull()
-  })
-})
-
-describe('host bridge', () => {
-  it('isolates sibling frames, deduplicates updates and reconnects after load', () => {
-    const iframe = document.createElement('iframe')
-
-    iframe.src = 'https://widgets.example.com/block/index.html'
-    document.body.append(iframe)
-
-    const post = vi.spyOn(iframe.contentWindow!, 'postMessage')
-    let current = context()
-    const bridge = createCustomBlockHost(iframe, () => current)
-
-    expect(post).toHaveBeenLastCalledWith(message('hello'), 'https://widgets.example.com')
-    post.mockClear()
-
-    const ready = (
-      source: Window = iframe.contentWindow!,
-      origin = 'https://widgets.example.com'
-    ) => {
-      deliver(message('ready'), origin, source)
-    }
-
-    ready(window)
-    ready(iframe.contentWindow!, 'https://other.example.com')
-    expect(post).not.toHaveBeenCalled()
-    ready()
-    expect(post).toHaveBeenLastCalledWith(
-      message('context', current),
-      'https://widgets.example.com'
-    )
-    bridge.update()
-    expect(post).toHaveBeenCalledOnce()
-    current = {
-      ...current,
-      layout: { ...current.layout, size: '2:2', width: 336, height: 336, viewport: 'mobile' },
-    }
-    bridge.update()
-    expect(post).toHaveBeenCalledTimes(2)
-    iframe.dispatchEvent(new Event('load'))
-    ready()
-    expect(post).toHaveBeenLastCalledWith(
-      message('context', current),
-      'https://widgets.example.com'
-    )
-    bridge.destroy()
-    post.mockClear()
-    ready()
-    bridge.update()
-    iframe.dispatchEvent(new Event('load'))
-    expect(post).not.toHaveBeenCalled()
   })
 })

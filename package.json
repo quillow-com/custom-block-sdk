@@ -16,7 +16,9 @@
     "url": "https://github.com/quillow-com/custom-block-sdk/issues"
   },
   "files": [
-    "dist",
+    "dist/index.*",
+    "dist/types.d.ts",
+    "dist/runtime.*",
     "README.md"
   ],
   "types": "./dist/index.d.ts",
@@ -24,10 +26,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./host": {
-      "types": "./dist/host.d.ts",
-      "import": "./dist/host.js"
     },
     "./runtime.js": "./dist/runtime.js"
   },
@@ -38,7 +36,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node build.mjs",
+    "build": "node build.mjs && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "format:check": "prettier --check .",

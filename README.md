@@ -1,6 +1,6 @@
 # @quillow/custom-block-sdk
 
-Framework-independent SDK for Custom Blocks embedded in Quillow. Provides live theme and layout updates without reloading the iframe. Requires a modern browser with `postMessage`; the host adapter uses `ResizeObserver`.
+Framework-independent SDK for authors of Custom Blocks embedded in Quillow. Provides live theme and layout updates without reloading the iframe. Requires a modern browser with `postMessage`.
 
 ## Install
 
@@ -104,22 +104,6 @@ The Quillow host provides resolved values for:
 | `--quillow-radius-v2`         | Actual block wrapper corner radius      |
 
 The runtime manages one font stylesheet, replaces it on font changes, removes obsolete variables, and restores previously existing inline values/attributes on `destroy()`. It does not reset the author's CSS or force these tokens onto elements.
-
-## Host integration
-
-The host is responsible for supplying resolved theme tokens and observing iframe dimensions and page layout changes. Framework-specific adapters live in the consuming applications, outside this SDK:
-
-```ts
-import { createCustomBlockHost } from '@quillow/custom-block-sdk/host'
-
-const bridge = createCustomBlockHost(iframe, () => currentContext)
-// On state/size changes:
-bridge.update()
-// On unmount:
-bridge.destroy()
-```
-
-Protocol v1 uses `quillow:custom-block` messages: `hello`, `ready`, `context`. The host checks the exact iframe window and URL origin; it sends theme data only to that origin. The SDK accepts only the direct parent and pins its origin (or checks the configured `parentOrigin`). The initial `ready` discovery uses `*` and carries no page data, so it also works with `referrerpolicy="no-referrer"` and custom domains. This trusts the embedding parent; configure `parentOrigin` if a block must restrict its embedder. Keep widgets on a separate HTTP(S) origin with `sandbox="allow-scripts allow-same-origin"`.
 
 ## Development and release
 
