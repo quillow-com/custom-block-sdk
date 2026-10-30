@@ -1,6 +1,6 @@
 {
   "name": "@quillow/custom-block-sdk",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Theme and responsive layout bridge for Quillow Custom Blocks",
   "license": "MIT",
   "type": "module",

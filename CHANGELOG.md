@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/quillow-com/custom-block-sdk/compare/v0.2.1...v0.3.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* move host bridge out of public SDK and standardize theme tokens
+
+### Code Refactoring
+
+* move host bridge out of public SDK and standardize theme tokens ([ab1488c](https://github.com/quillow-com/custom-block-sdk/commit/ab1488cfdbae4527ff474fb908d90e94756098ca))
+
 ## [0.2.1](https://github.com/quillow-com/custom-block-sdk/compare/v0.2.0...v0.2.1) (2026-10-30)
 
 
