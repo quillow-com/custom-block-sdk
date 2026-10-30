@@ -1,5 +1,7 @@
 # @quillow/custom-block-sdk
 
+[![npm version](https://img.shields.io/npm/v/@quillow/custom-block-sdk)](https://www.npmjs.com/package/@quillow/custom-block-sdk)
+
 Framework-independent SDK for authors of Custom Blocks embedded in Quillow. Provides live theme and layout updates without reloading the iframe. Requires a modern browser with `postMessage`.
 
 ## Install
