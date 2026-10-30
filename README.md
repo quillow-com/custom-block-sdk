@@ -39,14 +39,14 @@ Copy `dist/runtime.js` from this package into the ZIP next to `index.html`:
 <style>
   body {
     margin: 0;
-    color: var(--quillow-text-color-v2, #222);
-    background: var(--quillow-surface-color-v2, white);
+    color: var(--quillow-text-color, #222);
+    background: var(--quillow-surface-color, white);
     font-family: var(--quillow-typography, sans-serif);
   }
   button {
     background: var(--quillow-accent-color, purple);
     color: var(--quillow-accent-text-color, white);
-    border-radius: var(--quillow-radius-v2, 16px);
+    border-radius: var(--quillow-radius, 16px);
   }
   html[data-quillow-viewport='mobile'] .details {
     display: none;
@@ -101,9 +101,9 @@ The Quillow host provides resolved values for:
 | `--quillow-accent-color`      | Selected accent color                   |
 | `--quillow-accent-text-color` | Contrasting text on the accent          |
 | `--quillow-typography`        | Selected font family and fallback stack |
-| `--quillow-text-color-v2`     | Primary text color                      |
-| `--quillow-surface-color-v2`  | Primary surface color                   |
-| `--quillow-radius-v2`         | Actual block wrapper corner radius      |
+| `--quillow-text-color`        | Primary text color                      |
+| `--quillow-surface-color`     | Primary surface color                   |
+| `--quillow-radius`            | Actual block wrapper corner radius      |
 
 The runtime manages one font stylesheet, replaces it on font changes, removes obsolete variables, and restores previously existing inline values/attributes on `destroy()`. It does not reset the author's CSS or force these tokens onto elements.
 
