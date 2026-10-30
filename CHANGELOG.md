@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/quillow-com/custom-block-sdk/compare/v0.2.0...v0.2.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* **package:** add MIT license ([234d91b](https://github.com/quillow-com/custom-block-sdk/commit/234d91ba124f0a6cad90c5d8f6bd65256f434f38))
+
 ## [0.2.0](https://github.com/quillow-com/custom-block-sdk/compare/v0.1.1...v0.2.0) (2026-10-30)
 
 
