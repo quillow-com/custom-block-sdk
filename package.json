@@ -1,0 +1,54 @@
+{
+  "name": "@quillow/custom-block-sdk",
+  "version": "0.1.0",
+  "description": "Theme and responsive layout bridge for Quillow Custom Blocks",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quillow-com/custom-block-sdk.git"
+  },
+  "homepage": "https://github.com/quillow-com/custom-block-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/quillow-com/custom-block-sdk/issues"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./host": {
+      "types": "./dist/host.d.ts",
+      "import": "./dist/host.js"
+    },
+    "./runtime.js": "./dist/runtime.js"
+  },
+  "sideEffects": [
+    "./dist/runtime.js"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "format:check": "prettier --check .",
+    "prepack": "pnpm run build"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.8.0"
+  }
+}
