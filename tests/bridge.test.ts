@@ -40,6 +40,31 @@ afterEach(() => {
 })
 
 describe('widget bridge', () => {
+  it('isolates replay errors and returns an unsubscribe function for failing subscribers', () => {
+    const error = new Error('Render failed')
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const failing = vi.fn(() => {
+      throw error
+    })
+    const healthy = vi.fn()
+
+    sdk.start()
+    deliver(message('context', context()))
+
+    const unsubscribe = sdk.subscribe(failing)
+
+    expect(log).toHaveBeenCalledWith('[Quillow SDK] Subscriber failed', error)
+    sdk.subscribe(healthy)
+    deliver(message('context', context()))
+    expect(failing).toHaveBeenCalledTimes(2)
+    expect(healthy).toHaveBeenCalledTimes(2)
+
+    unsubscribe()
+    deliver(message('context', context()))
+    expect(failing).toHaveBeenCalledTimes(2)
+    expect(healthy).toHaveBeenCalledTimes(3)
+  })
+
   it('handshakes without a referrer, applies theme, and delivers responsive updates without reloading', async () => {
     const ready = sdk.ready()
 

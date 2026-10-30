@@ -82,6 +82,13 @@ export function createCustomBlockSDK(options: SDKOptions = {}) {
   }
 
   const request = () => window.parent.postMessage(message('ready'), origin ?? '*')
+  const notify = (listener: (context: BlockContext) => void, value: BlockContext) => {
+    try {
+      listener(value)
+    } catch (error) {
+      console.error('[Quillow SDK] Subscriber failed', error)
+    }
+  }
   const receive = (event: MessageEvent) => {
     if (
       event.source !== window.parent ||
@@ -115,11 +122,7 @@ export function createCustomBlockSDK(options: SDKOptions = {}) {
     for (const waiter of pending) waiter.resolve(context)
     pending.clear()
     for (const listener of listeners) {
-      try {
-        listener(context)
-      } catch (error) {
-        console.error('[Quillow SDK] Subscriber failed', error)
-      }
+      notify(listener, context)
     }
   }
 
@@ -171,7 +174,7 @@ export function createCustomBlockSDK(options: SDKOptions = {}) {
       start()
       listeners.add(listener)
 
-      if (context) listener(context)
+      if (context) notify(listener, context)
 
       return () => {
         listeners.delete(listener)
