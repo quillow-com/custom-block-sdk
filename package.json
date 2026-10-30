@@ -1,6 +1,6 @@
 {
   "name": "@quillow/custom-block-sdk",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Theme and responsive layout bridge for Quillow Custom Blocks",
   "type": "module",
   "packageManager": "pnpm@10.33.0",

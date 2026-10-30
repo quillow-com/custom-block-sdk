@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/quillow-com/custom-block-sdk/compare/v0.1.1...v0.2.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sdk:** remove host adapter and limit SDK to block authors
+
+### Code Refactoring
+
+* **sdk:** remove host adapter and limit SDK to block authors ([e0f0de1](https://github.com/quillow-com/custom-block-sdk/commit/e0f0de1648705ad78e36104eaf1d373da6221b01))
+
 ## [0.1.1](https://github.com/quillow-com/custom-block-sdk/compare/v0.1.0...v0.1.1) (2026-10-30)
 
 
