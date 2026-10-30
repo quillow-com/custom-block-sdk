@@ -1,6 +1,8 @@
-name: Publish to npm
+name: Release and publish
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       tag:
@@ -10,19 +12,42 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
-  group: npm-publish
+  group: release-and-publish
   cancel-in-progress: false
 
 jobs:
-  publish:
+  release-please:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: release-please
+    if: ${{ !cancelled() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ needs.release-please.outputs.tag_name || inputs.tag }}
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          ref: refs/tags/${{ env.RELEASE_TAG }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
@@ -30,12 +55,19 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
       - name: Check release version
-        env:
-          RELEASE_TAG: ${{ inputs.tag }}
         run: node --input-type=module -e "import pkg from './package.json' with { type:'json' }; if (process.env.RELEASE_TAG !== 'v' + pkg.version) throw new Error('Tag must match package version');"
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - run: npm pack
+      - name: Attach package to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          archive="quillow-custom-block-sdk-${RELEASE_TAG#v}.tgz"
+          if ! gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | grep -Fxq "$archive"; then
+            gh release upload "$RELEASE_TAG" "$archive"
+          fi
       - run: npm publish --provenance --access public

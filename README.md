@@ -145,11 +145,21 @@ The package contains ESM entry points, declarations, source maps and a standalon
 
 ### Releases
 
-1. Update `package.json` and `CHANGELOG.md`; run all checks above.
-2. Commit and tag the version as `vX.Y.Z`.
-3. Run `npm pack`, then attach the generated `.tgz` to the matching GitHub Release.
-4. After npm publishing is configured, run the **Publish to npm** workflow with the existing release tag. It verifies the package version, runs checks, and publishes with provenance.
+Releases are managed by [release-please](https://github.com/googleapis/release-please) in `.github/workflows/publish.yml`:
 
-The first npm publication must be bootstrapped by a maintainer with access to the `@quillow` npm scope (`npm publish --access public`). Then configure the package's **Trusted Publisher** on npmjs.com: organization `quillow-com`, repository `custom-block-sdk`, workflow `publish.yml`, with direct publishing allowed. Subsequent workflow releases authenticate using GitHub OIDC, without a stored npm token. The workflow is manual and does not run when a GitHub Release is created.
+1. Merge changes into `main` using Conventional Commits (`fix: ...`, `feat: ...`, `feat!: ...`). With squash merging, use a Conventional Commit PR title.
+2. The **Release and publish** workflow opens or updates a release PR with the next `package.json` version, `CHANGELOG.md` entries and `.release-please-manifest.json`.
+3. Review and merge that PR. The next workflow run creates the `vX.Y.Z` tag and GitHub Release.
+4. In the same run, the publish job checks the tagged version, runs formatting, types and tests, builds the package, attaches its `.tgz` to the release and publishes to npm with provenance.
+
+The initial version is `0.1.0`. Before `1.0.0`, fixes increment the patch version and features or breaking changes increment the minor version. Routine `chore`, `docs`, and `ci` commits alone do not require a release. Do not manually bump versions or create tags for normal releases.
+
+Migration note: `last-release-sha` marks the reworded initial commit, whose original hash is still referenced by the existing `v0.1.0` tag. It prevents counting the initial SDK implementation as a new feature. Remove this migration override after the first release-please release is created. The generated changelog is excluded from formatting checks.
+
+If npm publication fails after a GitHub Release is created, fix the cause and manually run **Release and publish** with that existing tag (or `gh workflow run publish.yml -f tag=vX.Y.Z`). Existing release archives are preserved on retries. Already published npm versions cannot be republished.
+
+The first npm publication must be bootstrapped by a maintainer with access to the `@quillow` npm scope (`npm publish --access public`). Then configure the package's **Trusted Publisher** on npmjs.com: organization `quillow-com`, repository `custom-block-sdk`, workflow `publish.yml`, with direct publishing allowed. Subsequent workflow releases authenticate using GitHub OIDC, without a stored npm token.
+
+The repository must allow GitHub Actions to create pull requests (Settings → Actions → General → Workflow permissions). By default release-please uses `GITHUB_TOKEN`; publishing runs in the same workflow because events created by that token do not trigger other workflows. For automatic CI checks on bot-created release PRs, optionally configure `RELEASE_PLEASE_TOKEN` as a GitHub App installation token or a fine-grained PAT with repository Contents and Pull requests read/write permissions. Otherwise, run the **CI** workflow manually on the release PR branch before merging; the publish job also runs all checks before publishing.
 
 Consumers should pin a released package version. Protocol changes must remain compatible with previously published blocks; a breaking protocol requires a new protocol version, not just a package version bump.
