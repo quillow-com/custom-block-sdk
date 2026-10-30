@@ -4,14 +4,6 @@ Framework-independent SDK for Custom Blocks embedded in Quillow. Provides live t
 
 ## Install
 
-Until the first npm publication, install the built package from GitHub Releases:
-
-```sh
-npm install https://github.com/quillow-com/custom-block-sdk/releases/download/v0.1.0/quillow-custom-block-sdk-0.1.0.tgz
-```
-
-After publication to npm:
-
 ```sh
 npm install @quillow/custom-block-sdk
 ```
@@ -154,11 +146,11 @@ Releases are managed by [release-please](https://github.com/googleapis/release-p
 
 The initial version is `0.1.0`. Before `1.0.0`, fixes increment the patch version and features or breaking changes increment the minor version. Routine `chore`, `docs`, and `ci` commits alone do not require a release. Do not manually bump versions or create tags for normal releases.
 
-Migration note: `last-release-sha` marks the reworded initial commit, whose original hash is still referenced by the existing `v0.1.0` tag. It prevents counting the initial SDK implementation as a new feature. Remove this migration override after the first release-please release is created. The generated changelog is excluded from formatting checks.
+The generated changelog is excluded from formatting checks.
 
 If npm publication fails after a GitHub Release is created, fix the cause and manually run **Release and publish** with that existing tag (or `gh workflow run publish.yml -f tag=vX.Y.Z`). Existing release archives are preserved on retries. Already published npm versions cannot be republished.
 
-The first npm publication must be bootstrapped by a maintainer with access to the `@quillow` npm scope (`npm publish --access public`). Then configure the package's **Trusted Publisher** on npmjs.com: organization `quillow-com`, repository `custom-block-sdk`, workflow `publish.yml`, with direct publishing allowed. Subsequent workflow releases authenticate using GitHub OIDC, without a stored npm token.
+The package's **Trusted Publisher** on npmjs.com is configured for organization `quillow-com`, repository `custom-block-sdk`, workflow `publish.yml`, with direct publishing allowed. Workflow releases authenticate using GitHub OIDC, without a stored npm token.
 
 The repository must allow GitHub Actions to create pull requests (Settings → Actions → General → Workflow permissions). By default release-please uses `GITHUB_TOKEN`; publishing runs in the same workflow because events created by that token do not trigger other workflows. For automatic CI checks on bot-created release PRs, optionally configure `RELEASE_PLEASE_TOKEN` as a GitHub App installation token or a fine-grained PAT with repository Contents and Pull requests read/write permissions. Otherwise, run the **CI** workflow manually on the release PR branch before merging; the publish job also runs all checks before publishing.
 
