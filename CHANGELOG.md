@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/quillow-com/custom-block-sdk/compare/v0.4.0...v0.5.0) (2026-11-08)
+
+
+### Features
+
+* **storage:** require string values ([74abd4a](https://github.com/quillow-com/custom-block-sdk/commit/74abd4abae6dd882d9c5d12f401fe65a58efe2ae))
+
 ## [0.4.0](https://github.com/quillow-com/custom-block-sdk/compare/v0.3.0...v0.4.0) (2026-11-08)
 
 
