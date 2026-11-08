@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/quillow-com/custom-block-sdk/compare/v0.3.0...v0.4.0) (2026-11-08)
+
+
+### Features
+
+* **sdk:** add host connections and revision-aware KV storage ([c3fe274](https://github.com/quillow-com/custom-block-sdk/commit/c3fe274f93f7fbe2d194e40942ab2a54c24b37f5))
+
 ## [0.3.0](https://github.com/quillow-com/custom-block-sdk/compare/v0.2.1...v0.3.0) (2026-10-30)
 
 
