@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@quillow/custom-block-sdk)](https://www.npmjs.com/package/@quillow/custom-block-sdk)
 
-Framework-independent SDK for authors of Custom Blocks embedded in Quillow. Connects to the host for block context and JSON storage, and provides live theme and layout updates. Requires a modern browser; KV connections also require a secure context and `MessageChannel` support in the host.
+Framework-independent SDK for authors of Custom Blocks embedded in Quillow. Connects to the host for block context and string storage, and provides live theme and layout updates. Requires a modern browser; KV connections also require a secure context and `MessageChannel` support in the host.
 
 ## Install
 
@@ -10,7 +10,7 @@ Framework-independent SDK for authors of Custom Blocks embedded in Quillow. Conn
 npm install @quillow/custom-block-sdk
 ```
 
-## Connect and store JSON
+## Connect and store strings
 
 ```ts
 import { connect, WidgetSDKError } from '@quillow/custom-block-sdk'
@@ -30,11 +30,9 @@ const page = await widget.storage.list({ limit: 50 })
 
 if (widget.mode === 'editor' && widget.capabilities.includes('storage.set')) {
   try {
-    const saved = await widget.storage.set(
-      'settings',
-      { theme: 'dark' },
-      { expectedRevision: settings?.revision }
-    )
+    const saved = await widget.storage.set('settings', JSON.stringify({ theme: 'dark' }), {
+      expectedRevision: settings?.revision,
+    })
 
     if (widget.capabilities.includes('storage.delete')) {
       await widget.storage.delete('settings', { expectedRevision: saved.revision })
@@ -53,7 +51,7 @@ widget.destroy()
 
 `connect()` also works without options. Both timeouts default to 10 seconds and must be positive integer milliseconds. Outside an iframe it rejects with `HOST_UNAVAILABLE`. A missing or legacy-only host causes `CONNECT_TIMEOUT`; failed connections remove their listeners and timers. Importing the package has no browser side effects.
 
-**Host support is required.** This repository implements the widget side, not the host's KV proxy. The new additive v1 contract is specified in [PROTOCOL.md](./PROTOCOL.md). Existing theme-only hosts need to implement it before `connect()` can succeed; the existing theme API continues to work unchanged.
+**Host support is required.** This repository implements the widget side, not the host's KV proxy. String storage uses the v1 KV contract in [PROTOCOL.md](./PROTOCOL.md); the theme/layout API also remains v1. Published SDK 0.4.0 can already exchange string values over this protocol. Its broader `JsonValue` input types do not permit non-string storage values: the host rejects them without automatic serialization. This SDK narrows those types and validates strings before sending.
 
 ### Storage contract
 
@@ -68,12 +66,14 @@ There is one `widget.storage`. It has no public/private namespaces, `scope` opti
 
 A record contains `key`, `value`, `revision`, `createdAt`, and `updatedAt`. Timestamps remain RFC 3339 strings. Revisions are opaque strings; use a token returned by a previous read or write, never a calculated revision.
 
-- Missing records are `null`. An existing record storing JSON null is `{ key, value: null, revision, createdAt, updatedAt }`.
+- Missing records are `null`. An existing record can contain `value: ''`; `null`, objects, arrays, booleans and numbers are not valid values.
 - Omitting `expectedRevision` (or passing `undefined` for that option) creates only. It never overwrites an existing key. Updates and deletes require a revision.
 - Every operation requires its matching capability: `storage.get`, `storage.list`, `storage.set`, or `storage.delete`. Public connections can only read, even if the host advertises a write capability. Writes require editor mode. These are convenience checks; host and backend must independently authorize every request.
 - Keys are 1–128 UTF-8 bytes, without control characters or lone surrogates. Keys are not trimmed or normalized. List limits are integers from 1 to 100, defaulting to 50. Cursors are passed back unchanged.
-- Values are detached JSON snapshots. Nested `undefined`, `BigInt`, `NaN`, infinities, functions, symbols, cycles, array holes, extra array properties, custom class instances, `Date`, `Map`, `Set`, getters, and non-enumerable properties are rejected before sending. Getters and `toJSON` are not invoked. Convert special values explicitly, e.g. `date.toISOString()`.
-- Size/count quotas are enforced by the host/backend. The current backend allows 64 KiB per value, 256 entries and 1 MiB per block. Quota failures preserve the backend's error code.
+- Values are opaque UTF-8 strings. No parsing, trimming, coercion or automatic serialization occurs. Empty strings and whitespace are preserved; zero bytes and lone surrogates are rejected. JSON, CSV, Markdown or plain text are application choices. For structured settings, call `JSON.stringify` before writing and validate the result of `JSON.parse(entry.value)` after reading. Never parse a missing entry or assume all values contain JSON.
+- Size/count quotas are enforced by the host/backend. The current backend allows 64 KiB of UTF-8 text per value, 256 entries and 1 MiB per block including key bytes. JSON transport escaping does not count toward the value quota. Quota failures preserve the backend's error code.
+
+Existing database values are migrated to their serialized JSON text without interpreting them. For example, an old object becomes `'{"theme":"dark"}'`, JSON null becomes `'null'`, and an old JSON string retains its quotes. Handle any application-specific migration explicitly; the SDK does not decode legacy data. Widget manifest `schemaVersion` stays `1`, independently of the KV protocol version.
 
 ### Errors and connection lifetime
 

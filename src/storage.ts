@@ -1,5 +1,5 @@
 import { invalidArgument, protocolError, uncertainMutation, WidgetSDKError } from './errors.js'
-import { readOptions, snapshotJson } from './json.js'
+import { readOptions } from './json.js'
 import { isRecord } from './protocol.js'
 import type { JsonValue, StorageEntry, StoragePage, WidgetContext, WidgetStorage } from './types.js'
 
@@ -24,6 +24,10 @@ function checkRevision(revision: unknown): asserts revision is string {
     invalidArgument('expectedRevision must be a non-empty revision token')
 }
 
+function validValue(value: unknown): value is string {
+  return typeof value === 'string' && !/[\u0000\uD800-\uDFFF]/u.test(value)
+}
+
 function timestamp(value: unknown): value is string {
   return (
     typeof value === 'string' &&
@@ -38,6 +42,7 @@ function entry(value: unknown, expectedKey?: string): StorageEntry {
     !validKey(value.key) ||
     (expectedKey !== undefined && value.key !== expectedKey) ||
     !Object.hasOwn(value, 'value') ||
+    !validValue(value.value) ||
     typeof value.revision !== 'string' ||
     value.revision.length === 0 ||
     !timestamp(value.createdAt) ||
@@ -45,17 +50,9 @@ function entry(value: unknown, expectedKey?: string): StorageEntry {
   )
     throw protocolError('The host returned an invalid storage entry')
 
-  let data: JsonValue
-
-  try {
-    data = snapshotJson(value.value)
-  } catch (error) {
-    throw protocolError('The host returned a non-JSON storage value', error)
-  }
-
   return Object.freeze({
     key: value.key,
-    value: data,
+    value: value.value,
     revision: value.revision,
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
@@ -123,11 +120,13 @@ export function createStorage(
       checkKey(key)
       const { expectedRevision } = readOptions(options, ['expectedRevision'])
 
+      if (!validValue(value))
+        invalidArgument('Storage values must be strings without zero bytes or lone surrogates')
       if (expectedRevision !== undefined) checkRevision(expectedRevision)
 
       const result = await request('storage.set', {
         key,
-        value: snapshotJson(value),
+        value,
         ...(expectedRevision !== undefined ? { expectedRevision: expectedRevision as string } : {}),
       })
 

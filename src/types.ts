@@ -16,13 +16,14 @@ export interface BlockContext {
   readonly environment: 'editor' | 'published'
 }
 
-/** Only plain JSON data is accepted; values are also validated at runtime. */
+/** Safe JSON data for protocol error details; storage values themselves are strings. */
 export type JsonValue =
   null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
 
 export interface StorageEntry {
   readonly key: string
-  readonly value: JsonValue
+  /** Opaque UTF-8 text; serialize structured settings explicitly. Empty strings are valid. */
+  readonly value: string
   /** Opaque token. Never calculate or increment revisions in widget code. */
   readonly revision: string
   /** RFC 3339 timestamps, as returned by the backend. */
@@ -53,7 +54,7 @@ export interface StorageDeleteOptions {
 export interface WidgetStorage {
   get(key: string): Promise<StorageEntry | null>
   list(options?: StorageListOptions): Promise<StoragePage>
-  set(key: string, value: JsonValue, options?: StorageSetOptions): Promise<StorageEntry>
+  set(key: string, value: string, options?: StorageSetOptions): Promise<StorageEntry>
   delete(key: string, options: StorageDeleteOptions): Promise<true>
 }
 

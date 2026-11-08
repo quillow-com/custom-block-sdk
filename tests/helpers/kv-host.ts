@@ -26,7 +26,7 @@ export function context(overrides: Partial<WidgetContext> = {}): WidgetContext {
   }
 }
 
-export function entry(key = 'settings', value: JsonValue = { theme: 'dark' }): StorageEntry {
+export function entry(key = 'settings', value = '{"theme":"dark"}'): StorageEntry {
   return {
     key,
     value,

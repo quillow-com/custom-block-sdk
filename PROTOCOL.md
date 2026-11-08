@@ -1,6 +1,6 @@
 # Custom Block KV bridge contract
 
-This specifies the widget-side KV connection implemented by this package. The host KV proxy must implement this contract separately. It is an additive extension of `quillow:custom-block` v1: legacy `hello`, `ready`, and `context` messages retain their existing meanings. Do not add KV access to legacy theme messages or consider a theme-only host connected to KV.
+This specifies the string-only **v1 KV connection** implemented by this package. The host KV proxy must implement this contract separately. It extends `quillow:custom-block` v1: `hello`, `ready`, and `context` theme/layout messages retain their existing meanings. Do not add KV access to theme messages or consider a theme-only host connected to KV. Widget manifest `schemaVersion` also remains `1`.
 
 All examples below are structured-clone objects, not JSON strings. Every message has:
 
@@ -69,7 +69,7 @@ A host that cannot open the session can respond without transferring a port:
 }
 ```
 
-A correlated reply with an incompatible envelope version fails with `PROTOCOL_MISMATCH`. A host may instead use a v1 `connect-error` with that code to report incompatibility. Legacy hosts that do not implement `connect` are ignored and eventually cause `CONNECT_TIMEOUT`. Failed handshakes clean up handlers, timers and any ports received in the rejected correlated reply.
+A correlated reply with an incompatible envelope version fails with `PROTOCOL_MISMATCH`. A host may instead use a v1 `connect-error` with that code to report incompatibility. Legacy hosts that do not implement `connect` are ignored and eventually cause `CONNECT_TIMEOUT`. Failed handshakes clean up handlers, timers and any ports received in the rejected correlated reply. Values must be strings regardless of an older SDK's broader input types; the host never automatically serializes non-string values.
 
 ## 2. RPC over the private port
 
@@ -85,7 +85,7 @@ Widget → host:
   type: 'request',
   requestId: '<request ID>',
   method: 'storage.set',
-  params: { key: 'settings', value: { theme: 'dark' }, expectedRevision: '<opaque revision>' },
+  params: { key: 'settings', value: '{"theme":"dark"}', expectedRevision: '<opaque revision>' },
 }
 ```
 
@@ -101,14 +101,14 @@ Entry shape:
 ```ts
 {
   key: string,
-  value: JsonValue,
+  value: string,
   revision: string,
   createdAt: string, // RFC 3339 timestamp; fractional seconds are preserved
   updatedAt: string,
 }
 ```
 
-The `value` field must exist even when it is `null`. A missing entry is a null entry, not an entry with an omitted value. Revisions are non-empty opaque tokens, not counters. A value may be any plain JSON value, including scalars and null; structured-clone support for `undefined`, `BigInt`, non-finite numbers or special objects does not make those values valid storage input.
+The `value` field must exist and be a string, including for empty strings. A missing entry is a null entry, not an entry with an omitted value. Revisions are non-empty opaque tokens, not counters. Values are opaque UTF-8 text without zero bytes or lone surrogates. Preserve their exact contents; do not parse, normalize, or coerce them. Reject null, objects, arrays, numbers, booleans, undefined and other structured-clone values. The host/backend limit values to 65,536 UTF-8 bytes, without counting JSON transport escaping. Structured data requires explicit application-owned serialization and validation.
 
 Keys are 1–128 UTF-8 bytes and cannot contain Unicode control characters or lone surrogates. SDK list limits are 1–100, default 50. Cursors are non-empty strings passed back without modification. `nextCursor: null` terminates pagination; an empty page must have a null cursor. Pages cannot contain duplicate keys or more entries than requested. Preserve backend ordering and cursor semantics.
 
@@ -153,7 +153,7 @@ The SDK correlates responses to pending request IDs, allows out-of-order replies
 - Bind a session to the host's block ID and running version. KV belongs to the block, not the version; never expose a caller-selectable block or namespace.
 - Authorize each operation using current trusted application state, not only the handshake snapshot. Public sessions may only call get/list; editor mutations also require the corresponding capability and backend authorization.
 - Use the existing public backend queries for public reads and the owner queries for editor reads. Only the host makes authenticated mutations. No authenticated GraphQL or user tokens are passed into the iframe.
-- Validate all parameters, JSON data, key/revision formats, quotas and backend results independently of the SDK. Treat the iframe as untrusted; do not accept a widget's claimed permissions or extra identity/scope fields.
+- Validate all parameters, string values, key/revision formats, quotas and backend results independently of the SDK. JSON is still allowed in safe error details, not as a storage value type. Treat the iframe as untrusted; do not accept a widget's claimed permissions or extra identity/scope fields.
 - Omitting `expectedRevision` means create only. Never convert it into an upsert. A supplied revision performs a conditional update; deletion always requires one. Forward conflicts without automatic retries, merges, or overwrites.
 - Do not retry mutations in either host or SDK after a timeout or transport failure. Completion of the backend mutation does not imply delivery of the response. Deleting/recreating a key must not reuse its old revision.
 - Reply on the requesting session's port only. A result arriving after iframe removal/navigation must not be delivered to a replacement session. Release every retained port/session when its iframe is removed, navigates, disconnects or fails a liveness check.

@@ -182,7 +182,11 @@ describe('KV connection handshake', () => {
       throw new Error('Port closed')
     })
     deliver(
-      { ...message('connected'), connectionId: lastConnect().connectionId, context: context() },
+      {
+        ...message('connected'),
+        connectionId: lastConnect().connectionId,
+        context: context(),
+      },
       [port.port]
     )
     await expect(promise).rejects.toMatchObject({ code: 'DISCONNECTED' })
@@ -230,7 +234,7 @@ describe('RPC isolation and lifecycle', () => {
   it('never retries timed-out mutations and ignores their late responses', async () => {
     vi.useFakeTimers()
     const host = await open({ requestTimeout: 20 })
-    const rejected = expect(host.widget.storage.set('settings', null)).rejects.toMatchObject({
+    const rejected = expect(host.widget.storage.set('settings', '')).rejects.toMatchObject({
       code: 'REQUEST_TIMEOUT',
       mutationMayHaveSucceeded: true,
     })
@@ -241,9 +245,9 @@ describe('RPC isolation and lifecycle', () => {
     expect(host.transport.postMessage).toHaveBeenCalledOnce()
 
     const read = host.widget.storage.get('settings')
-    host.respond(entry('settings', null), timedOut)
-    host.respond(entry('settings', null))
-    await expect(read).resolves.toMatchObject({ value: null })
+    host.respond(entry('settings', ''), timedOut)
+    host.respond(entry('settings', ''))
+    await expect(read).resolves.toMatchObject({ value: '' })
   })
 
   it('destroys once, rejects pending work, removes listeners and clears all timers', async () => {
@@ -251,7 +255,7 @@ describe('RPC isolation and lifecycle', () => {
     const host = await open()
     const remove = vi.spyOn(host.transport, 'removeEventListener')
     const read = host.widget.storage.get('settings')
-    const write = host.widget.storage.set('settings', null)
+    const write = host.widget.storage.set('settings', '')
 
     host.widget.destroy()
     host.widget.destroy()
@@ -272,7 +276,7 @@ describe('RPC isolation and lifecycle', () => {
     async (kind) => {
       vi.useFakeTimers()
       const host = await open()
-      const pending = host.widget.storage.set('settings', null)
+      const pending = host.widget.storage.set('settings', '')
 
       if (kind === 'disconnect')
         host.transport.deliver({ ...host.frame('disconnect'), reason: 'Removed' })
@@ -307,7 +311,7 @@ describe('RPC isolation and lifecycle', () => {
     host.transport.postMessage.mockImplementationOnce(() => {
       throw new Error('closed')
     })
-    await expect(host.widget.storage.set('settings', null)).rejects.toMatchObject({
+    await expect(host.widget.storage.set('settings', '')).rejects.toMatchObject({
       code: 'DISCONNECTED',
       mutationMayHaveSucceeded: true,
     })

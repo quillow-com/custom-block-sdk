@@ -1,48 +1,41 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import type {
-  JsonValue,
-  StorageDeleteOptions,
-  StorageListOptions,
-  StorageSetOptions,
-} from '../src/index.js'
+import type { StorageDeleteOptions, StorageListOptions, StorageSetOptions } from '../src/index.js'
 import { context, entry, open, setup, teardown } from './helpers/kv-host.js'
 
 beforeEach(setup)
 afterEach(teardown)
 
 describe('widget storage', () => {
-  it('distinguishes missing entries from JSON null and does not return a backend blockId field', async () => {
+  it('distinguishes missing entries from empty strings and does not return a backend blockId field', async () => {
     const host = await open()
     const missing = host.widget.storage.get('settings')
     host.respond(null)
     await expect(missing).resolves.toBeNull()
 
     const present = host.widget.storage.get('settings')
-    host.respond({ ...entry('settings', null), blockId: host.widget.blockId })
-    await expect(present).resolves.toEqual(entry('settings', null))
+    host.respond({ ...entry('settings', ''), blockId: host.widget.blockId })
+    await expect(present).resolves.toEqual(entry('settings', ''))
     expect(host.lastRequest()).toMatchObject({ method: 'storage.get', params: { key: 'settings' } })
   })
 
   it('creates, updates and deletes using only caller-provided revisions', async () => {
     const host = await open()
-    const create = host.widget.storage.set('settings', null, { expectedRevision: undefined })
-    expect(host.lastRequest().params).toEqual({ key: 'settings', value: null })
-    host.respond(entry('settings', null))
+    const create = host.widget.storage.set('settings', '', { expectedRevision: undefined })
+    expect(host.lastRequest().params).toEqual({ key: 'settings', value: '' })
+    host.respond(entry('settings', ''))
     const created = await create
 
-    const update = host.widget.storage.set(
-      'settings',
-      { theme: 'light' },
-      { expectedRevision: created.revision }
-    )
-    expect(host.lastRequest().params).toEqual({
-      key: 'settings',
-      value: { theme: 'light' },
+    const update = host.widget.storage.set('settings', '{"theme":"light"}', {
       expectedRevision: created.revision,
     })
-    host.respond({ ...entry('settings', { theme: 'light' }), revision: 'opaque-revision-2' })
+    expect(host.lastRequest().params).toEqual({
+      key: 'settings',
+      value: '{"theme":"light"}',
+      expectedRevision: created.revision,
+    })
+    host.respond({ ...entry('settings', '{"theme":"light"}'), revision: 'opaque-revision-2' })
     const saved = await update
 
     const deleted = host.widget.storage.delete('settings', { expectedRevision: saved.revision })
@@ -59,33 +52,34 @@ describe('widget storage', () => {
     await createOnly
   })
 
-  it('takes a synchronous JSON snapshot before returning from set', async () => {
-    const host = await open()
-    const value = { nested: { enabled: true } }
-    const saved = host.widget.storage.set('settings', value)
-    value.nested.enabled = false
+  it.each(['', 'plain text', ' \nЖ 🧮 ', 'not { JSON', '{ "nested": true }'])(
+    'preserves opaque text without serialization: %j',
+    async (value) => {
+      const host = await open()
+      const saved = host.widget.storage.set('settings', value)
 
-    expect(host.lastRequest().params).toEqual({
-      key: 'settings',
-      value: { nested: { enabled: true } },
-    })
-    host.respond(entry())
-    await saved
-  })
+      expect(host.lastRequest().params).toEqual({
+        key: 'settings',
+        value,
+      })
+      host.respond(entry('settings', value))
+      expect((await saved).value).toBe(value)
+    }
+  )
 
   it('paginates explicitly without fetching additional pages automatically', async () => {
     const host = await open()
     const first = host.widget.storage.list({ limit: 1 })
     expect(host.lastRequest().params).toEqual({ limit: 1 })
-    host.respond({ entries: [entry('a', 1)], nextCursor: 'a' })
+    host.respond({ entries: [entry('a', '1')], nextCursor: 'a' })
     const page = await first
     expect(page.nextCursor).toBe('a')
     expect(host.transport.postMessage).toHaveBeenCalledOnce()
 
     const next = host.widget.storage.list({ after: page.nextCursor!, limit: 1 })
     expect(host.lastRequest().params).toEqual({ after: 'a', limit: 1 })
-    host.respond({ entries: [entry('b', false)], nextCursor: null })
-    await expect(next).resolves.toEqual({ entries: [entry('b', false)], nextCursor: null })
+    host.respond({ entries: [entry('b', 'false')], nextCursor: null })
+    await expect(next).resolves.toEqual({ entries: [entry('b', 'false')], nextCursor: null })
 
     const defaults = host.widget.storage.list()
     expect(host.lastRequest().params).toEqual({ limit: 50 })
@@ -102,7 +96,7 @@ describe('widget storage', () => {
     'unknown_future_backend_code',
   ])('preserves backend error %s, including details, without retrying', async (code) => {
     const host = await open()
-    const pending = host.widget.storage.set('settings', null)
+    const pending = host.widget.storage.set('settings', '')
     host.reject(code, { limit: 256, field: 'settings' })
 
     await expect(pending).rejects.toMatchObject({
@@ -118,7 +112,7 @@ describe('widget storage', () => {
   it('denies public writes even when the host accidentally advertises write capabilities', async () => {
     const host = await open({}, context({ mode: 'public' }))
 
-    await expect(host.widget.storage.set('settings', null)).rejects.toMatchObject({
+    await expect(host.widget.storage.set('settings', '')).rejects.toMatchObject({
       code: 'PERMISSION_DENIED',
     })
     await expect(
@@ -145,8 +139,8 @@ describe('widget storage', () => {
       host.widget.storage.delete('settings', { expectedRevision: 'r' })
     ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
     expect(host.transport.postMessage).not.toHaveBeenCalled()
-    const write = host.widget.storage.set('settings', true)
-    host.respond(entry('settings', true))
+    const write = host.widget.storage.set('settings', 'true')
+    host.respond(entry('settings', 'true'))
     await write
   })
 
@@ -155,7 +149,7 @@ describe('widget storage', () => {
     async (key) => {
       const host = await open()
       await expect(host.widget.storage.get(key)).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' })
-      await expect(host.widget.storage.set(key, null)).rejects.toMatchObject({
+      await expect(host.widget.storage.set(key, '')).rejects.toMatchObject({
         code: 'INVALID_ARGUMENT',
       })
       await expect(
@@ -212,27 +206,41 @@ describe('widget storage', () => {
       { blockId: 'other' },
     ]) {
       await expect(
-        host.widget.storage.set('settings', null, options as StorageSetOptions)
+        host.widget.storage.set('settings', '', options as StorageSetOptions)
       ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' })
     }
     expect(host.transport.postMessage).not.toHaveBeenCalled()
   })
 
-  it.each([undefined, { nested: undefined }, [BigInt(1)], { number: NaN }, new Date()])(
-    'rejects non-JSON storage values before sending: %#',
-    async (value) => {
-      const host = await open()
-      await expect(
-        host.widget.storage.set('settings', value as unknown as JsonValue)
-      ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' })
-      expect(host.transport.postMessage).not.toHaveBeenCalled()
-    }
-  )
+  it.each([
+    null,
+    true,
+    42,
+    {},
+    [],
+    undefined,
+    { nested: undefined },
+    [BigInt(1)],
+    { number: NaN },
+    new Date(),
+    '\u0000',
+    '\ud800',
+  ])('rejects non-string or malformed text values before sending: %#', async (value) => {
+    const host = await open()
+    await expect(
+      host.widget.storage.set('settings', value as unknown as string)
+    ).rejects.toMatchObject({ code: 'INVALID_ARGUMENT' })
+    expect(host.transport.postMessage).not.toHaveBeenCalled()
+  })
 
   it.each([
     undefined,
     { ...entry(), key: 'another-key' },
     { ...entry(), value: undefined },
+    { ...entry(), value: null },
+    { ...entry(), value: {} },
+    { ...entry(), value: 42 },
+    { ...entry(), value: '\u0000' },
     { ...entry(), revision: '' },
     { ...entry(), updatedAt: 'yesterday' },
     {
@@ -263,7 +271,7 @@ describe('widget storage', () => {
 
   it('marks malformed mutation confirmations as an unknown outcome', async () => {
     const host = await open()
-    const write = host.widget.storage.set('settings', null)
+    const write = host.widget.storage.set('settings', '')
     host.respond(null)
     await expect(write).rejects.toMatchObject({
       code: 'PROTOCOL_ERROR',

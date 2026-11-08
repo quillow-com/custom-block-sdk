@@ -38,13 +38,13 @@ it('exchanges real structured-clone messages over an independent MessageChannel'
           connectionId,
           requestId: request.requestId,
           ok: true,
-          result: entry('settings', request.params!.value as null),
+          result: entry('settings', request.params!.value as string),
         })
       }
     )
     channel.port2.start()
 
-    await expect(widget.storage.set('settings', null)).resolves.toEqual(entry('settings', null))
+    await expect(widget.storage.set('settings', '')).resolves.toEqual(entry('settings', ''))
   } finally {
     channel.port1.close()
     channel.port2.close()
