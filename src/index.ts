@@ -2,6 +2,21 @@ import { isContext, isHttpUrl, isMessage, message } from './protocol.js'
 import type { BlockContext } from './types.js'
 
 export type { BlockContext } from './types.js'
+export { connect } from './connect.js'
+export { WidgetSDKError } from './errors.js'
+export type { SDKErrorCode } from './errors.js'
+export type {
+  ConnectOptions,
+  JsonValue,
+  StorageDeleteOptions,
+  StorageEntry,
+  StorageListOptions,
+  StoragePage,
+  StorageSetOptions,
+  Widget,
+  WidgetContext,
+  WidgetStorage,
+} from './types.js'
 
 export interface SDKOptions {
   /** Pin the embedding origin when known. Otherwise trust the direct parent and pin its first valid message. */

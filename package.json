@@ -1,7 +1,7 @@
 {
   "name": "@quillow/custom-block-sdk",
   "version": "0.3.0",
-  "description": "Theme and responsive layout bridge for Quillow Custom Blocks",
+  "description": "Host connection, JSON storage, theme and layout SDK for Quillow Custom Blocks",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.33.0",
@@ -18,9 +18,10 @@
   },
   "files": [
     "dist/index.*",
-    "dist/types.d.ts",
+    "dist/*.d.ts",
     "dist/runtime.*",
-    "README.md"
+    "README.md",
+    "PROTOCOL.md"
   ],
   "types": "./dist/index.d.ts",
   "exports": {
