@@ -62,12 +62,16 @@ export interface WidgetContext {
   readonly blockId: string
   readonly versionId: string
   readonly mode: 'public' | 'editor'
-  /** Known storage capabilities are storage.get/list/set/delete. Unknown capabilities are retained. */
+  /** Known capabilities are storage.get/list/set/delete and editor.open. Unknown names are retained. */
   readonly capabilities: readonly string[]
+  /** Optional host metadata. False means the block has no available manifest.editor screen. */
+  readonly editor?: { readonly available: boolean }
 }
 
 export interface Widget extends WidgetContext {
   readonly storage: WidgetStorage
+  /** Requests the manifest.editor screen in editor mode. Resolves when opening is accepted, not on close. */
+  openEditor(): Promise<void>
   /** Permanently closes this connection. Does not undo mutations already sent to the host. */
   destroy(): void
 }

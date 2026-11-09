@@ -93,6 +93,9 @@ describe('KV connection handshake', () => {
     { capabilities: {} },
     { capabilities: ['storage.get', 'storage.get'] },
     { capabilities: [null] },
+    { editor: null },
+    { editor: {} },
+    { editor: { available: 'true' } },
   ])('rejects malformed contexts: %j', async (changes) => {
     const promise = connect()
     const { connectionId } = lastConnect()

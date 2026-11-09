@@ -1,6 +1,6 @@
-# Custom Block KV bridge contract
+# Custom Block host connection contract
 
-This specifies the string-only **v1 KV connection** implemented by this package. The host KV proxy must implement this contract separately. It extends `quillow:custom-block` v1: `hello`, `ready`, and `context` theme/layout messages retain their existing meanings. Do not add KV access to theme messages or consider a theme-only host connected to KV. Widget manifest `schemaVersion` also remains `1`.
+This specifies the **v1 connection** for string-only storage and the optional block editor UI implemented by this package. The host must implement this contract separately. It extends `quillow:custom-block` v1: `hello`, `ready`, and `context` theme/layout messages retain their existing meanings. Do not add RPC to theme messages or consider a theme-only host connected to RPC. Widget manifest `schemaVersion` also remains `1`.
 
 All examples below are structured-clone objects, not JSON strings. Every message has:
 
@@ -30,6 +30,8 @@ Widget → direct parent, using `window.parent.postMessage`:
 
 The target origin is the configured exact HTTP(S) `parentOrigin`, or `'*'` when unknown. This initial message contains no block data, values, or credentials. The SDK also resends this same handshake when the parent announces the existing v1 `hello`, accommodating a host that attaches late. The host must handle repeated handshake IDs without opening duplicate sessions.
 
+A host loading editor metadata may defer accepting `connect` until that metadata is known, then send `hello` to request the same handshake again. It must not report `editor.available: false` merely because a manifest/publication fetch is still pending. The SDK's normal connection timeout bounds this wait; no request or accepted session is replayed.
+
 The host must validate `event.source === iframe.contentWindow`, the iframe's expected origin, protocol, version, and message structure. It derives the block identity and permissions from trusted application state, never from the widget. Widgets must use a separate origin from the privileged host.
 
 The host creates a fresh `MessageChannel` and retains one endpoint. It replies to the requesting iframe's exact origin, transferring exactly the other endpoint in the transfer list:
@@ -45,7 +47,8 @@ iframe.contentWindow.postMessage(
       blockId: '<trusted block ID>',
       versionId: '<running widget version ID>',
       mode: 'editor', // or 'public'
-      capabilities: ['storage.get', 'storage.list', 'storage.set', 'storage.delete'],
+      capabilities: ['storage.get', 'storage.list', 'storage.set', 'storage.delete', 'editor.open'],
+      editor: { available: true }, // optional editor UI extension; never includes the editor URL
     },
   },
   widgetOrigin,
@@ -54,6 +57,8 @@ iframe.contentWindow.postMessage(
 ```
 
 Both IDs must be non-empty strings. `capabilities` is a duplicate-free string array. Unknown capability names are retained for future extensions. A public host should advertise only read capabilities. Missing capabilities deny their corresponding methods. The legacy theme environment `published` corresponds to the KV mode `public`; `published` is not valid in this handshake.
+
+`editor`, when supplied, must be an object with a boolean `available`. It reports whether a valid screen from the current block's `manifest.editor` is available. False means unavailable; omission means unknown (including legacy hosts), not false. This metadata does not grant access. Only editor-mode sessions with a permitted host UI handler and an available screen receive `editor.open`. The SDK freezes this metadata with the rest of the context. This optional extension requires no version bump and does not alter storage or theme-only integrations.
 
 The SDK accepts only a response from its direct parent, with an HTTP(S) origin matching `parentOrigin` when configured, the exact connection ID, compatible version, valid context, and exactly one transferred port. Without an origin configured, the validated parent response establishes trust for this session. Other windows, origins, protocols, and session IDs are ignored. Once accepted, only the private port carries RPC messages; window messages cannot resolve RPC requests.
 
@@ -95,6 +100,20 @@ Widget → host:
 | `storage.list`      | `{ limit, after? }`                 | `{ entries: Entry[], nextCursor: string \| null }` |
 | `storage.set`       | `{ key, value, expectedRevision? }` | Saved entry                                        |
 | `storage.delete`    | `{ key, expectedRevision }`         | Literal `true`                                     |
+| `editor.open`       | `{}`                                | Literal `true` when opening is accepted            |
+
+### Block editor UI
+
+`editor.open` asks the host to open the connected block's screen from `manifest.editor`, not a source-code editor. There are no URL, block ID, version ID or other parameters. The host owns URL validation, access checks and rendering; it must never navigate to a widget-selected URL. The UI handler is separate from the storage/backend adapter.
+
+- Public sessions always fail with `PERMISSION_DENIED`, even if a capability was advertised incorrectly.
+- In editor mode, an explicitly unavailable screen (`context.editor.available === false`) fails with `EDITOR_UNAVAILABLE`. The SDK can reject this locally without sending an RPC. Missing capability or UI support otherwise fails with `PERMISSION_DENIED`; unknown availability cannot be reported as a missing manifest editor.
+- Independently validate current identity, permissions, availability and empty parameters before opening. Extra parameters fail with `INVALID_ARGUMENT`. A definite unavailable-screen rejection from the handler uses `EDITOR_UNAVAILABLE`; unexpected UI failures use a safe `HOST_REQUEST_FAILED` error, never raw internal details.
+- Success means the host accepted opening its existing modal, not that the editor iframe loaded, settings were saved or the modal closed. The SDK maps literal `true` to `Promise<void>`; other results fail with `PROTOCOL_ERROR`.
+- Repeated calls must reuse the modal, not create nested/duplicate windows. Replayed request IDs follow the same deduplication rules as storage. Do not give the settings iframe itself an opening handler/capability.
+- No automatic retries or reconnects. A timeout does not prove the UI did not open. This is not a storage mutation: `mutationMayHaveSucceeded` remains false for editor requests, including timeout, teardown and malformed confirmations.
+
+### Storage entries
 
 Entry shape:
 
@@ -151,7 +170,7 @@ The SDK correlates responses to pending request IDs, allows out-of-order replies
 ## 3. Host authorization and persistence
 
 - Bind a session to the host's block ID and running version. KV belongs to the block, not the version; never expose a caller-selectable block or namespace.
-- Authorize each operation using current trusted application state, not only the handshake snapshot. Public sessions may only call get/list; editor mutations also require the corresponding capability and backend authorization.
+- Authorize each operation using current trusted application state, not only the handshake snapshot. Public sessions may only call get/list and must never open the block editor; editor mutations also require the corresponding capability and backend authorization.
 - Use the existing public backend queries for public reads and the owner queries for editor reads. Only the host makes authenticated mutations. No authenticated GraphQL or user tokens are passed into the iframe.
 - Validate all parameters, string values, key/revision formats, quotas and backend results independently of the SDK. JSON is still allowed in safe error details, not as a storage value type. Treat the iframe as untrusted; do not accept a widget's claimed permissions or extra identity/scope fields.
 - Omitting `expectedRevision` means create only. Never convert it into an upsert. A supplied revision performs a conditional update; deletion always requires one. Forward conflicts without automatic retries, merges, or overwrites.
@@ -169,7 +188,7 @@ Both endpoints must respond to a valid `ping` with a `pong` carrying the same `r
 
 The SDK probes every 15 seconds in a visible document and expects a matching pong within 10 seconds. A pong for a different probe cannot satisfy it. Probes pause and their watchdog is cleared while the document is hidden; becoming visible starts a fresh probe interval. Hosts must tolerate browser background suspension and implement their own appropriate liveness cleanup. Do not rely on `MessagePort.close()` notifying the other endpoint in every browser.
 
-Either endpoint can send `{ ...envelope, type: 'disconnect', reason?: string }` before closing its port. Host changes to block ID, version ID, mode or capabilities require terminating the old session, not silently retargeting it. Widget authors can explicitly call `connect()` again; there is no automatic reconnection or replay.
+Either endpoint can send `{ ...envelope, type: 'disconnect', reason?: string }` before closing its port. Host changes to block ID, version ID, mode, capabilities or editor availability require terminating the old session, not silently retargeting it. Widget authors can explicitly call `connect()` again; there is no automatic reconnection or replay.
 
 The SDK also closes on document `pagehide`, decode failure, incompatible protocol or heartbeat failure. `destroy()` closes only its own session, clears request/heartbeat timers, removes listeners, and rejects all pending operations. It is idempotent. A failed per-request timeout removes that waiter but does not itself terminate the session.
 

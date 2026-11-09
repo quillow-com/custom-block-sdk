@@ -1,10 +1,8 @@
 import { invalidArgument, protocolError, uncertainMutation, WidgetSDKError } from './errors.js'
 import { readOptions } from './json.js'
 import { isRecord } from './protocol.js'
-import type { JsonValue, StorageEntry, StoragePage, WidgetContext, WidgetStorage } from './types.js'
-
-export type StorageMethod = 'storage.get' | 'storage.list' | 'storage.set' | 'storage.delete'
-export type Request = (method: StorageMethod, params: Record<string, JsonValue>) => Promise<unknown>
+import type { Request, StorageMethod } from './rpc.js'
+import type { StorageEntry, StoragePage, WidgetContext, WidgetStorage } from './types.js'
 
 function validKey(key: unknown): key is string {
   return (

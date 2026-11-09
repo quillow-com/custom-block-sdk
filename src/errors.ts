@@ -11,6 +11,7 @@ export type SDKErrorCode =
   | 'DESTROYED'
   | 'INVALID_ARGUMENT'
   | 'PERMISSION_DENIED'
+  | 'EDITOR_UNAVAILABLE'
 
 export class WidgetSDKError extends Error {
   readonly code: string

@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@quillow/custom-block-sdk)](https://www.npmjs.com/package/@quillow/custom-block-sdk)
 
-Framework-independent SDK for authors of Custom Blocks embedded in Quillow. Connects to the host for block context and string storage, and provides live theme and layout updates. Requires a modern browser; KV connections also require a secure context and `MessageChannel` support in the host.
+Framework-independent SDK for authors of Custom Blocks embedded in Quillow. Connects to the host for block context, string storage and opening the block editor, and provides live theme and layout updates. Requires a modern browser; host connections also require a secure context and `MessageChannel` support in the host.
 
 ## Install
 
@@ -51,7 +51,7 @@ widget.destroy()
 
 `connect()` also works without options. Both timeouts default to 10 seconds and must be positive integer milliseconds. Outside an iframe it rejects with `HOST_UNAVAILABLE`. A missing or legacy-only host causes `CONNECT_TIMEOUT`; failed connections remove their listeners and timers. Importing the package has no browser side effects.
 
-**Host support is required.** This repository implements the widget side, not the host's KV proxy. String storage uses the v1 KV contract in [PROTOCOL.md](./PROTOCOL.md); the theme/layout API also remains v1. Published SDK 0.4.0 can already exchange string values over this protocol. Its broader `JsonValue` input types do not permit non-string storage values: the host rejects them without automatic serialization. This SDK narrows those types and validates strings before sending.
+**Host support is required.** This repository implements the widget side, not the host's storage proxy or editor UI. Storage and editor requests use the v1 connection contract in [PROTOCOL.md](./PROTOCOL.md); the theme/layout API also remains v1. Published SDK 0.4.0 can already exchange string values over this protocol. Its broader `JsonValue` input types do not permit non-string storage values: the host rejects them without automatic serialization. This SDK narrows those types and validates strings before sending.
 
 ### Storage contract
 
@@ -75,17 +75,38 @@ A record contains `key`, `value`, `revision`, `createdAt`, and `updatedAt`. Time
 
 Existing database values are migrated to their serialized JSON text without interpreting them. For example, an old object becomes `'{"theme":"dark"}'`, JSON null becomes `'null'`, and an old JSON string retains its quotes. Handle any application-specific migration explicitly; the SDK does not decode legacy data. Widget manifest `schemaVersion` stays `1`, independently of the KV protocol version.
 
+### Open the block editor
+
+`openEditor()` asks Quillow to open the current block's screen from `manifest.editor`. It does not open a source-code editor or accept a caller-selected URL. It is available on the widget returned by `connect()`, not the separate theme/layout `Quillow` instance.
+
+```ts
+const widget = await connect()
+
+if (widget.capabilities.includes('editor.open')) {
+  await widget.openEditor()
+}
+```
+
+- Requires editor mode and the `editor.open` capability. Published/public sessions cannot open the editor.
+- Resolves with `undefined` when the host accepts opening the existing modal, not when its iframe finishes loading or the user closes it. Repeated calls do not create additional modals. Closing it refreshes the block preview so it can read saved settings.
+- A host reporting `widget.editor.available === false` causes an immediate `WidgetSDKError` with code `EDITOR_UNAVAILABLE`. This means no valid `manifest.editor` screen is available. `PERMISSION_DENIED` means the mode or capability does not allow opening it.
+- `widget.editor` is optional, immutable availability metadata. Its absence on an older host does **not** establish that the manifest has no editor. Without the capability, the call fails with `PERMISSION_DENIED`, without waiting for a request timeout.
+- If the host is still loading the applied block's editor metadata, it defers the handshake rather than reporting a missing screen. The usual `connect()` timeout still applies.
+- The host independently checks current identity, access and availability. Opening requests are never retried automatically. After a timeout the modal may still have opened; `mutationMayHaveSucceeded` is reserved for storage writes and remains false for this UI request.
+
+The editor preview currently disables pointer events inside its iframe to preserve grid dragging. This method supports programmatic calls; it does not make buttons inside that preview clickable.
+
 ### Errors and connection lifetime
 
 `WidgetSDKError` extends `Error` and exposes `code`, optional JSON `details`, and `mutationMayHaveSucceeded`. Backend codes are preserved verbatim, including unknown future codes. Current storage codes include `widget_storage_conflict`, `widget_storage_quota_exceeded`, `widget_storage_invalid`, and `widget_storage_not_found`; authorization codes also pass through unchanged.
 
-SDK-local codes are `HOST_UNAVAILABLE`, `CONNECT_TIMEOUT`, `REQUEST_TIMEOUT`, `PROTOCOL_MISMATCH`, `PROTOCOL_ERROR`, `DISCONNECTED`, `DESTROYED`, `INVALID_ARGUMENT`, and `PERMISSION_DENIED`.
+SDK-local codes are `HOST_UNAVAILABLE`, `CONNECT_TIMEOUT`, `REQUEST_TIMEOUT`, `PROTOCOL_MISMATCH`, `PROTOCOL_ERROR`, `DISCONNECTED`, `DESTROYED`, `INVALID_ARGUMENT`, `PERMISSION_DENIED`, and `EDITOR_UNAVAILABLE`.
 
 **Mutations are never retried.** A request timeout does not mean the write failed. When `mutationMayHaveSucceeded` is true, re-read and reconcile explicitly; do not blindly resend. Closing or destroying a connection cannot undo an already dispatched mutation. A single request timeout does not close an otherwise healthy connection.
 
 Each call to `connect()` creates an independent session and `MessagePort`. The SDK validates the parent window, origin, protocol version, handshake correlation ID, and message formats. Without `parentOrigin`, it trusts the direct parent that completes a valid handshake; this is not proof that the parent is operated by Quillow. Pin the origin when that distinction matters. No user tokens or authenticated GraphQL requests enter widget code.
 
-`destroy()` is idempotent. It closes that session, removes its handlers, clears timers, and rejects pending work with `DESTROYED`. Host disconnects, document unloads, decode failures and missed heartbeats also terminate pending work. Heartbeats pause while the document is hidden. Connections never reconnect or replay requests automatically; call `connect()` explicitly for a new session. The host must close a session if its block identity, version, mode, or capabilities change.
+`destroy()` is idempotent. It closes that session, removes its handlers, clears timers, and rejects pending work with `DESTROYED`. Host disconnects, document unloads, decode failures and missed heartbeats also terminate pending work. Heartbeats pause while the document is hidden. Connections never reconnect or replay requests automatically; call `connect()` explicitly for a new session. The host must close a session if its block identity, version, mode, capabilities or editor availability change.
 
 ## Theme and layout
 
