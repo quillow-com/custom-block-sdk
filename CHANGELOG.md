@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.0](https://github.com/quillow-com/custom-block-sdk/compare/v0.6.0...v0.7.0) (2026-11-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sdk:** Remove Widget.openEditor(), WidgetContext.editor, and the EDITOR_UNAVAILABLE SDK error code. Open block settings through the host UI instead.
+
+### Code Refactoring
+
+* **sdk:** remove settings-opening API ([50e151a](https://github.com/quillow-com/custom-block-sdk/commit/50e151af39a252b0d551b31c857343441feed157))
+
 ## [0.6.0](https://github.com/quillow-com/custom-block-sdk/compare/v0.5.0...v0.6.0) (2026-11-09)
 
 
