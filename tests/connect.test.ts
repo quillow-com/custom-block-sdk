@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 
 import { connect } from '../src/index.js'
 import { message } from '../src/protocol.js'
@@ -36,6 +36,40 @@ describe('KV connection handshake', () => {
     expect(transport.start).toHaveBeenCalledOnce()
     expect(document.documentElement.hasAttribute('data-quillow-environment')).toBe(false)
   })
+
+  it.each(['editor', 'public'] as const)(
+    'does not expose a block editor API in %s mode',
+    async (mode) => {
+      const { widget } = await open({}, context({ mode }))
+
+      expect(widget).not.toHaveProperty('openEditor')
+      expect(widget).not.toHaveProperty('editor')
+      expectTypeOf(widget).not.toHaveProperty('openEditor')
+      expectTypeOf(widget).not.toHaveProperty('editor')
+    }
+  )
+
+  it.each([undefined, { available: true }, { available: false }, null, {}, { available: 'true' }])(
+    'ignores legacy editor metadata (%j) while preserving storage access and unknown capabilities',
+    async (editor) => {
+      const hostContext = { ...context(), editor }
+      hostContext.capabilities = [...hostContext.capabilities, 'editor.open', 'future.capability']
+      const host = await open({}, hostContext)
+
+      expect(host.widget.capabilities).toEqual(hostContext.capabilities)
+      expect(host.widget).not.toHaveProperty('openEditor')
+      expect(host.widget).not.toHaveProperty('editor')
+      expect(host.transport.postMessage).not.toHaveBeenCalled()
+
+      const read = host.widget.storage.get('settings')
+      expect(host.lastRequest()).toMatchObject({
+        method: 'storage.get',
+        params: { key: 'settings' },
+      })
+      host.respond(entry())
+      await expect(read).resolves.toEqual(entry())
+    }
+  )
 
   it('checks the direct parent, exact origin, protocol and connection ID before accepting a port', async () => {
     const promise = connect({ parentOrigin })
@@ -93,9 +127,6 @@ describe('KV connection handshake', () => {
     { capabilities: {} },
     { capabilities: ['storage.get', 'storage.get'] },
     { capabilities: [null] },
-    { editor: null },
-    { editor: {} },
-    { editor: { available: 'true' } },
   ])('rejects malformed contexts: %j', async (changes) => {
     const promise = connect()
     const { connectionId } = lastConnect()

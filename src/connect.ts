@@ -1,7 +1,7 @@
 import { invalidArgument, protocolError, uncertainMutation, WidgetSDKError } from './errors.js'
 import { readOptions, snapshotJson } from './json.js'
 import { isHttpUrl, isMessage, isRecord, message, PROTOCOL, VERSION } from './protocol.js'
-import type { Request, RPCMethod } from './rpc.js'
+import type { Request, StorageMethod } from './rpc.js'
 import { createStorage } from './storage.js'
 import type { ConnectOptions, Widget, WidgetContext } from './types.js'
 
@@ -27,9 +27,7 @@ function readContext(value: unknown): WidgetContext {
     !value.capabilities.every(
       (capability) => typeof capability === 'string' && capability.length > 0
     ) ||
-    new Set(value.capabilities).size !== value.capabilities.length ||
-    (value.editor !== undefined &&
-      (!isRecord(value.editor) || typeof value.editor.available !== 'boolean'))
+    new Set(value.capabilities).size !== value.capabilities.length
   )
     throw protocolError('The host returned an invalid widget context')
 
@@ -38,9 +36,6 @@ function readContext(value: unknown): WidgetContext {
     versionId: value.versionId,
     mode: value.mode,
     capabilities: Object.freeze([...value.capabilities]) as readonly string[],
-    ...(isRecord(value.editor)
-      ? { editor: Object.freeze({ available: value.editor.available as boolean }) }
-      : {}),
   })
 }
 
@@ -76,14 +71,15 @@ function createWidget(
   const pending = new Map<
     string,
     {
-      method: RPCMethod
+      method: StorageMethod
       resolve: (value: unknown) => void
       reject: (error: WidgetSDKError) => void
       timer: ReturnType<typeof setTimeout>
     }
   >()
   const frame = (type: string) => ({ ...message(type), connectionId })
-  const mutation = (method: RPCMethod) => method === 'storage.set' || method === 'storage.delete'
+  const mutation = (method: StorageMethod) =>
+    method === 'storage.set' || method === 'storage.delete'
   const assertOpen = () => {
     if (closed) throw closed
   }
@@ -232,25 +228,6 @@ function createWidget(
   return Object.freeze({
     ...context,
     storage: createStorage(context, request, assertOpen),
-    async openEditor() {
-      assertOpen()
-      if (context.mode !== 'editor')
-        throw new WidgetSDKError(
-          'PERMISSION_DENIED',
-          'Opening the block editor requires editor mode'
-        )
-      if (context.editor?.available === false)
-        throw new WidgetSDKError(
-          'EDITOR_UNAVAILABLE',
-          'This block has no available manifest.editor screen'
-        )
-      if (!context.capabilities.includes('editor.open'))
-        throw new WidgetSDKError('PERMISSION_DENIED', 'The host has not permitted editor.open')
-
-      const result = await request('editor.open', {})
-
-      if (result !== true) throw protocolError('The host did not confirm opening the block editor')
-    },
     destroy() {
       if (closed) return
       try {
